@@ -1,0 +1,27 @@
+{
+    "name": "u-blox GNSS",
+    "version": "0.0.1",
+    "description": "GNSS GPS library without bells and whistles, simply works, low power",
+    "keywords": "sensors, GPS, GNSS, tracking, low power, mobile, battery, web, cloud, iot, gsm, gprs, gps, gnss",
+    "authors":
+    {
+      "name":  "Leonardo Bispo",
+      "url":   "https://github.com/ldab",
+      "maintainer": true
+    },
+    "repository":
+    {
+      "type": "git",
+      "url": "https://github.com/ldab/u-blox_GNSS.git"
+    },
+    "homepage": "https://github.com/ldab/u-blox_GNSS",
+    "export": {
+      "exclude": [
+        "linux",
+        "extras"
+      ]
+    },
+    "frameworks": "arduino",
+    "platforms": "*",
+    "examples": "examples/*/*/*.ino"
+  }
