@@ -33,4 +33,4 @@ install:
     - platformio update
 
 script:
-    - platformio ci --lib="." --board=adafruit_trinket_m0 --board=d1_mini_pro --board=uno
+    - platformio ci --lib="." --board=adafruit_trinket_m0 --board=d1_mini_pro --board=megaatmega2560
