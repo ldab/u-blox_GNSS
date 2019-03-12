@@ -4,7 +4,7 @@ u-blox GNSS, GPS receiver library minimalistic light weight for low power tracki
 
 [![GitHub version](https://img.shields.io/github/release/ldab/u-blox_GNSS.svg)](https://github.com/ldab/u-blox_GNSS/releases/latest)
 [![Build Status](https://travis-ci.org/ldab/u-blox_GNSS.svg?branch=master)](https://travis-ci.org/ldab/u-blox_GNSS)
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://github.com/ldab/u-blox_GNSS/blob/master/LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/ldab/u-blox_GNSS/blob/master/LICENSE)
 
 [![GitHub last commit](https://img.shields.io/github/last-commit/ldab/u-blox_GNSS.svg?style=social)](https://github.com/ldab/u-blox_GNSS)
 
