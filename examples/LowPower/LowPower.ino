@@ -33,12 +33,11 @@ void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
 
-  //Serial_GNSS.begin( 9600 );
+  Serial_GNSS.begin( 9600 );
 
   // Alternativelly 1Hz power mode can be used
   //if( gnss.init( PSM_1HZ ) )
-  if( gnss.init( ON_OFF, 280000, 12) )
-  //if( gnss.init(  ) )
+  if( gnss.init( ON_OFF, 280000, 6) )
   {
     Serial.println("\nGNSS initialized.");
   }
@@ -54,7 +53,7 @@ void loop()
   // Get coordinates with minimum 100m accuracy;
   Serial.println("Get location");
 
-  if ( gnss.getCoodinates(lon, lat, fix, acc, 100) == 0) 
+  if ( gnss.getCoodinates(lon, lat, fix, acc, 50) == 0) 
   {
     Serial.println("Failed to get coordinates, check signal, accuracy required or wiring");
   }
@@ -62,7 +61,7 @@ void loop()
   Serial.println("\nHere you are, lon:" + String(lon, 7) +" lat:" + String(lat, 7));
   Serial.println("calculated error: " + String(acc) + "m");
   
-  Serial.println("Or try the following link to see on google maps:");
+  Serial.println("\nOr try the following link to see on google maps:");
   Serial.println(String("https://www.google.com/maps/search/?api=1&query=") + String(lat,7) + "," + String(lon,7));
 
   delay(50000);

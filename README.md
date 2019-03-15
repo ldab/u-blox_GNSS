@@ -12,7 +12,7 @@ u-blox GNSS, GPS receiver library minimalistic light weight for low power tracki
 
 ## TODO
 
-- [ ] Use Stream class to work with both Harware and Software serial
+- [x] Use Stream class to work with both Harware and Software serial
 - [x] Implement better debug handler
 - [ ] Update Keywords
 - [x] Implement serial timeout
@@ -28,6 +28,7 @@ When first powered the GNSS module automatically starts sending [NMEA](https://e
 
 You can also turn the GNSS module OFF by ```GNSS::off()``` function, and empty command will sleep forever until any activity on the UART interface.
 
+When the ```GNSS::getCoodinates``` is called, it try to wake the module and retrive Navigation information, the default timeout is *60 sec* and the accuracy can be set as the last parameter of the function.
 
 ## Power Save Modes
 
@@ -51,6 +52,10 @@ Continous   | 23
 PSM 1Hz     | 9.5
 
 *Current from start-up until the first fix.
+
+## Troubleshooting
+
+If you get in trouble or want to try different configurations you can use the [serial_bridge.ino](.examples\Serial_Bridge\serial_bridge.ino) example and control the module using u-blox [u-center](https://www.u-blox.com/en/product/u-center). This example simply bridge the serial USB over the UART connected to the u-blox module defined on the ```#define``` interfaces.
 
 ## Credits
 

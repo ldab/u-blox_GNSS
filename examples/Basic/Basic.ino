@@ -8,99 +8,60 @@ https://github.com/ldab/u-blox_GNSS
 Distributed as-is; no warranty is given.
 ******************************************************************************/
 
-"ublox_GNSS.h"
+// Enable Serial debbug on Serial UART to see registers wrote
+#define GNSS_DEBUG Serial
 
-uint16_t errorsAndWarnings = 0;
+#include "ublox_GNSS.h"
 
-LIS3DH myIMU(0x19); //Default address is 0x19.
+// use Software Serial on Uno, Nano, ESP8266
+#if defined(ESP8266)
+  #include <SoftwareSerial.h>
+  SoftwareSerial Serial_GNSS(4, 5); // RX, TX
+
+// Use Hardware Serial on Mega, Leonardo, Micro, MKR
+#else
+  #define Serial_GNSS Serial1
+#endif
+
+float lat, lon, acc;
+
+fixType_t fix = NO_FIX;
+
+GNSS gnss( Serial_GNSS );
 
 void setup() {
   // put your setup code here, to run once:
-  Serial.begin(115200);
-  delay(1000); //wait until serial is open...
-  
-  if( myIMU.begin() != 0 )
+  Serial.begin( 115200 );
+
+  Serial_GNSS.begin( 9600 );
+
+  if( gnss.init(  ) )
   {
-    Serial.print("Error at begin().\n");
+    Serial.println("\nGNSS initialized.");
   }
   else
   {
-    Serial.print("\nbegin() passed.\n");
+    Serial.println("\nFailed to initialize GNSS module.");
   }
-  
-//Setup the accelerometer******************************
-  uint8_t dataToWrite = 0; //Start Fresh!
-  dataToWrite |= 0x4 << 4; //ODR of 50Hz
-  dataToWrite |= 0x7; //Enable all axes
-
-  //Now, write the patched together data
-  errorsAndWarnings += myIMU.writeRegister(LIS3DH_CTRL_REG1, dataToWrite);
-
-  dataToWrite = 0x80;
-  errorsAndWarnings += myIMU.writeRegister(LIS3DH_CTRL_REG4, dataToWrite);
-
-  dataToWrite = 0x80; //ADC enable
-  errorsAndWarnings += myIMU.writeRegister(LIS3DH_TEMP_CFG_REG, dataToWrite);
-
-  
-
-//  //Test interrupt configuration profile on int1
-//  {
-//	dataToWrite = 0x40; //INT1 src
-//	errorsAndWarnings += myIMU.writeRegister(LIS3DH_CTRL_REG3, dataToWrite);
-//	dataToWrite = 0x08; //latch output int
-//	errorsAndWarnings += myIMU.writeRegister(LIS3DH_CTRL_REG5, dataToWrite);
-//	dataToWrite = 0x40; //
-//	//errorsAndWarnings += myIMU.writeRegister(LIS3DH_REFERENCE, dataToWrite);
-//	dataToWrite = 0x0A; //High X and high Y only
-//	errorsAndWarnings += myIMU.writeRegister(LIS3DH_INT1_CFG, dataToWrite);
-//	dataToWrite = 0x3F; // half amplitude?
-//	errorsAndWarnings += myIMU.writeRegister(LIS3DH_INT1_THS, dataToWrite);
-//	dataToWrite = 0x01; //duration?
-//	errorsAndWarnings += myIMU.writeRegister(LIS3DH_INT1_DURATION, dataToWrite);
-//  }
-
-  
-  //Test interrupt configuration profile on int2
-  {
-	dataToWrite = 0x40; //INT2 src
-	errorsAndWarnings += myIMU.writeRegister(LIS3DH_CTRL_REG6, dataToWrite);
-	dataToWrite = 0x08; //latch output int
-	errorsAndWarnings += myIMU.writeRegister(LIS3DH_CTRL_REG5, dataToWrite);
-	dataToWrite = 0x40; //
-	//errorsAndWarnings += myIMU.writeRegister(LIS3DH_REFERENCE, dataToWrite);
-	dataToWrite = 0x0A; //High X and high Y only
-	errorsAndWarnings += myIMU.writeRegister(LIS3DH_INT1_CFG, dataToWrite);
-	dataToWrite = 0x3F; // half amplitude?
-	errorsAndWarnings += myIMU.writeRegister(LIS3DH_INT1_THS, dataToWrite);
-	dataToWrite = 0x01; //duration?
-	errorsAndWarnings += myIMU.writeRegister(LIS3DH_INT1_DURATION, dataToWrite);
-  }
-
-  //Get the ID:
-  uint8_t readData = 0;
-  Serial.print("\nReading LIS3DH_WHO_AM_I: 0x");
-  myIMU.readRegister(&readData, LIS3DH_WHO_AM_I);
-  Serial.println(readData, HEX);
 
 }
 
-
 void loop()
 {
-  float accel;
-  uint8_t readData = 0;
+  // Get coordinates with minimum 100m accuracy;
+  Serial.println("Get location");
 
-  Serial.print(" Acceleration = ");
-  //Read a register into the Acceleration variable.
-  if( myIMU.readRegister( &readData, LIS3DH_OUT_X_L ) != 0 )
+  if ( gnss.getCoodinates(lon, lat, fix, acc, 100) == 0) 
   {
-    errorsAndWarnings++;
+    Serial.println("Failed to get coordinates, check signal, accuracy required or wiring");
   }
-  
-  Serial.println();
-  Serial.print("Total reported Errors and Warnings: ");
-  Serial.println(errorsAndWarnings);
 
-  delay(1000);
+  Serial.println("\nHere you are, lon:" + String(lon, 7) +" lat:" + String(lat, 7));
+  Serial.println("calculated error: " + String(acc) + "m");
+  
+  Serial.println("\nOr try the following link to see on google maps:");
+  Serial.println(String("https://www.google.com/maps/search/?api=1&query=") + String(lat,7) + "," + String(lon,7));
+
+  delay(50000);
+
 }

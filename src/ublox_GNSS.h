@@ -16,7 +16,6 @@ Distributed as-is; no warranty is given.
 #if defined(ARDUINO)
 	#if ARDUINO >= 100
     #include "Arduino.h"
-		#include "SoftwareSerial.h"
 	#else
     #include "WProgram.h"
 	#endif
@@ -37,7 +36,7 @@ Distributed as-is; no warranty is given.
 		}
 	}
 #else
-  	#define DBG(...)
+  #define DBG(...)
 #endif
 
 // Power Save Mode
@@ -64,9 +63,10 @@ typedef enum
 class GNSS
 {
 public:
-	// Assign serial interface to be used with the module
 
-	GNSS( SoftwareSerial& ss );
+	Stream&       stream;
+	// Assign serial interface to be used with the module
+	GNSS( Stream& stream ) : stream(stream){}
 	
 	// Empty begin() starts module on default, non-power saving mode, or PSM_1HZ.
 	bool init( psmMode_t m = CONTINOUS );
@@ -96,8 +96,6 @@ private:
 
 	bool gnss_init = false;
 
-	HardwareSerial* stream;
-	SoftwareSerial*	s_stream;
 	// Read Serial RX buffer just to clean it
 	void clearUART( void );
 
