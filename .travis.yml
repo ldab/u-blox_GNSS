@@ -26,7 +26,7 @@ cache:
 env:
     - PLATFORMIO_CI_SRC=examples/LowPower/LowPower.ino
     - PLATFORMIO_CI_SRC=examples/Basic/Basic.ino
-    - PLATFORMIO_CI_SRC=examples/Basic/serial_bridge.ino
+    - PLATFORMIO_CI_SRC=examples/Serial_Bridge/serial_bridge.ino
 
 install:
     - pip install -U platformio
