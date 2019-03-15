@@ -11,28 +11,34 @@ Distributed as-is; no warranty is given.
 #include "ublox_GNSS.h"
 #include "stdint.h"
 
+GNSS::GNSS( SoftwareSerial& ss )
+{
+  s_stream = &ss;
+}
+
 void GNSS::clearUART( void )
 {
-  while( stream.available() >0 )
-    stream.read();
+  while( s_stream->available() > 0 )
+    s_stream->read();
 }
 
 void GNSS::bits_char( uint32_t c, uint8_t *_c )
 {
-  for( int i = 0; i < 3; )
+  for( int i = 0; i < 4; i++)
   {
-    _c[i] = ( c >> i ) & 0xFF;
-    i++;
+    _c[i] = ( c >> 8*i ) & 0xFF;
   }
 }
 
-bool GNSS::begin( psmMode_t m )
+bool GNSS::init( psmMode_t m )
 {
-	stream.write(0xFF);          // Send something to wake GNSS
-  while( !stream.available() ); // alow some time to turn GNSS ON.
+  DBG("\nStart GNSS Configuration");
 
-  // Clear NMEA messages
-  clearUART();
+  s_stream->begin( 9600 );
+  delay(50);                        // breathe
+  
+	s_stream->write( 0xFF );          // Send something to wake GNSS
+  delay(600);
 
   // Disable NMEA, UBX-CFG-PRT -> Enable UBX over UART1 and Baud rate 9600
   byte message[] = {0xB5, 0x62, 0x06, 0x00, 0x14, 0x00, 0x01, 0x00, 0x00, 0x00, 0xD0, 0x08, 0x00, 0x00,
@@ -48,132 +54,249 @@ bool GNSS::begin( psmMode_t m )
   if( m == PSM_1HZ )
   {
     DBG("UBX-CFG-PSM -> Power save mode");
-    byte confmessage[] = {0xB5, 0x62, 0x06, 0x86, 0x08, 0x00, 0x00, 0x02, 0x18, 0x01, 0x05, 0x00, 0x00, 0x00,
-                          0xB4, 0x11};
+    byte confmessage[] = {0xB5, 0x62, 0x06, 0x86, 0x08, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                          0x97, 0x6F};
 
     ret &= sendUBX( confmessage, sizeof(confmessage) );
   }
+  else if( m == CONTINOUS )
+  {
+    DBG("UBX-CFG-PSM -> Default, balanced mode");
+    byte confmessage[] = {0xB5, 0x62, 0x06, 0x86, 0x08, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                          0x95, 0x61};
+
+    ret &= sendUBX( confmessage, sizeof(confmessage) );
+  }
+  
 
   DBG("UBX-CFG-CFG -> Saving configuration");
 
   ret &= saveCFG();
 
-	return ret;
+  gnss_init = ret;
+
+	return gnss_init;
 }
 
-bool GNSS::begin( psmMode_t m, uint32_t sleep, uint32_t onTime )
+bool GNSS::init( psmMode_t m, uint32_t sleep, uint32_t onTime )
 {
   if( m != ON_OFF)
     return false;
 
-  begin();
+  init( ON_OFF );
 
-  //uint8_t _sleep[4] = { sleep, sleep >> 8, sleep >> 16, sleep >> 24 };
-  uint8_t _sleep[4] = {};
+  // Convert sleep time to ms, 4 bytes
+  uint8_t _sleep[4];
   bits_char(sleep, _sleep);
-  
-  uint8_t _ontime[4] = {};
-  bits_char(onTime, _ontime);
 
-  byte onoff[56] = {0xB5, 0x62, 0x06, 0x3B, 0x30, 0x00, 0x02, 0x06, 0x00, 0x00, 0x00, 0x90, 0x40, 0x01, _sleep[3], _sleep[2],
-                  _sleep[1], _sleep[0], _ontime[3], _ontime[2], _ontime[1], _ontime[0], 0x00, 0x00, 0x00, 0x00, 0x0A, 0x00, 
-                  0x78, 0x00, 0x2C, 0x01, 0x00, 0x00, 0x4F, 0xC1, 0x03, 0x00, 0x87, 0x02, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00,
-                  0x64, 0x40, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00};
+  // Convert sleep time and on time to seconds, 2 unsigned bytes:
+  uint16_t period = sleep/1000;
+
+  uint8_t _period[2] = { period & 0xFF, (period >> 8) & 0xFF };
+  uint8_t _ontime[2] = { onTime & 0xFF, (onTime >> 8) & 0xFF };
+
+  DBG("UBX-CFG-PSM -> Power save mode ON/OFF");
+
+  byte pms[] = {0xB5, 0x62, 0x06, 0x86, 0x08, 0x00, 0x00, 0x02, _period[0], _period[1], _ontime[0], _ontime[1], 0x00, 0x00,
+                0x00, 0x00};
 
   uint8_t CK_A = 0, CK_B = 0;
-  for( uint8_t i = 2; i < sizeof(onoff) ; )
+  for( uint8_t i = 2; i < (sizeof(pms) - 2) ; i++ )
+  {
+    CK_A = CK_A + pms[i];
+    CK_B = CK_B + CK_A;
+  }
+
+  CK_A &= 0xFF;
+  CK_B &= 0xFF;
+
+  pms[14] = CK_A;
+  pms[15] = CK_B;
+  
+  bool ret = sendUBX( pms, sizeof(pms));
+
+  DBG("UBX-CFG-PS2 -> Configure search time");
+
+  byte onoff[] = {0xB5, 0x62, 0x06, 0x3B, 0x30, 0x00, 0x02, 0x06, 0x00, 0x00, 0x00, 0x10, 0x40, 0x01, _sleep[0], _sleep[1],
+                  _sleep[2], _sleep[3], 0xC0, 0x45, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, _ontime[0], _ontime[1], 0x78, 0x00,
+                  0x2C, 0x01, 0x00, 0x00, 0x4F, 0xC1, 0x03, 0x00, 0x86, 0x02, 0x00, 0x00, 0xFE, 0x00, 0x00, 0x00, 
+                  0x64, 0x40, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+
+  CK_A = 0;
+  CK_B = 0;
+  for( uint8_t i = 2; i < (sizeof(onoff) - 2) ; i++ )
   {
     CK_A = CK_A + onoff[i];
     CK_B = CK_B + CK_A;
-    i++;
   }
+
+  CK_A &= 0xFF;
+  CK_B &= 0xFF;
 
   onoff[54] = CK_A;
   onoff[55] = CK_B;
-
-  DBG("UBX-CFG-PS2 -> Power save mode ON/OFF");
   
-  bool ret = sendUBX( onoff, sizeof(onoff));
+  ret &= sendUBX( onoff, sizeof(onoff));
 
   DBG("UBX-CFG-CFG -> Saving configuration");
 
   ret &= saveCFG();
 
-	return ret;
+  gnss_init = ret;
+
+	return gnss_init;
 }
 
-bool GNSS::sendUBX( byte *msg, uint8_t size )
+bool GNSS::sendUBX( byte *msg, uint32_t size )
 {
-  stream.write( msg, sizeof(msg));
+  //DBG("Sending UBX");
+  s_stream->write( msg, size);
 
-  byte *_msg;
   int i = 0;
+  byte _msg[10];
+  uint32_t startMillis = millis();
 
-  while( stream.available() > 0)
-  {
-    _msg[i] = stream.read();
-    i++;
-  }
+  do{
+    delay(0);
+    while (s_stream->available() > 0) {
+      _msg[i] = s_stream->read();
+      i++;
+      if (i < 10) continue;
+    }
+  } while (millis() - startMillis < UART_TIMEOUT);
+
+  // Clear Version message from UART
+  clearUART();
   
-  if( _msg[3] == 2 )
+  DBG("i= ", i);
+  DBG("Delta T= ", millis() - startMillis );
+
+  /*while( i > 0 ) {
+    DBG(_msg[i-1]);
+    i--;
+  }*/
+
+  if( _msg[3] == 0 )
   {
     // Message Not-Acknowledged
     DBG("Message Not-Acknowledged");
     return false;
   }
 
-  return crc( msg , sizeof(msg) );
+  return crc( _msg , sizeof(_msg) );
 
 }
 
 bool GNSS::getCoodinates( float &lon, float &lat, fixType_t &fix, float &acc, float acc_min )
 {
-  byte nav_pvt[] = {0xB5, 0x62, 0x01, 0x07};
+  DBG("UBX-NAV-PVT -> Pooling coordinates");
 
-  stream.write(0xFF);          // Send something to wake GNSS
-  while( !stream.available() ); // alow some time to turn GNSS ON.
-
-  // Clear NMEA messages
-  clearUART();
-
-  DBG("UBX-NAV-PVT -> Pooling coordinates")
-
-  sendUBX( nav_pvt, sizeof(nav_pvt) );
-
-  uint8_t i = 0;
-  byte *res;
-
-  while( stream.available() > 0)
+  if( !gnss_init )
   {
-
-      res[i] = stream.read();
-      i++;
-
+    lat = 0;
+    lon = 0;
+    acc = 0;
+    fix = (fixType_t)0;
+    return false;
   }
 
-  lon = ( (res[27] << 24) + (res[26] << 16) + (res[25] << 8) + res[24] ) / 1e-7;
-  lat = ( (res[31] << 24) + (res[30] << 16) + (res[29] << 8) + res[28] ) / 1e-7;
-  fix = (fixType_t)res[20];
-  acc = ( (res[43] << 24) + (res[42] << 16) + (res[41] << 8) + res[40] ) / 1000;
+  int i = 0;
+  uint8_t res[100];
+  uint32_t startMillis = millis();
+  uint32_t millis_read = millis();
 
-  DBG("lon: ", lon, "lat: ", lat, " - ", fix, " ~", float(acc/1000.0f));
+  // Reset accuracy for while loop;
+  acc = 10000;
 
+  // Poll navigation data byte -> UBX-NAV-PVT
+  byte nav_pvt[] = {0xB5, 0x62, 0x01, 0x07, 0x00, 0x00, 0x08, 0x19};
+
+  s_stream->write(0xFF);          // Send something to wake GNSS
+  delay(600);
+
+  // Clear NMEA messages if any
+  clearUART();
+  
+do{  
+  delay(0);
+
+  s_stream->write( nav_pvt, sizeof(nav_pvt) );
+
+  i = 0;
+  millis_read = millis();
+
+  do{
+    delay(0);
+    while (s_stream->available() > 0) {
+      res[i] = s_stream->read();
+      i++;
+      if (i < 100) continue;
+    }
+  } while (millis() - millis_read < UART_TIMEOUT);
+
+  DBG("\ni= ", i);
+  DBG("Delta T= ", millis() - millis_read );
+  
+  /*while( i >= 0 ) {
+    DBG(res[i]);
+    i--;
+  }*/
+
+  lon = (uint32_t)((res[33] << 24) + (res[32] << 16) + (res[31] << 8) + res[30]) * 0.0000001f;
+  lat = (uint32_t)((res[37] << 24) + (res[36] << 16) + (res[35] << 8) + res[34]) * 0.0000001f;
+  fix = (fixType_t)res[26];
+  acc = (uint32_t)((res[49] << 24) + (res[48] << 16) + (res[47] << 8) + res[46] ) / 1000.0f;
+
+  DBG("\nlon: ", lon, "lat: ", lat, " - ", fix, " ~", acc, "m");
+  if( acc < acc_min ) goto finish;
+  else {
+    delay(2000);
+    clearUART();
+  }
+
+}while( millis()-startMillis < FIX_TIMEOUT );
+
+  finish:
   return crc( res, sizeof(res) );
 }
 
-bool GNSS::crc( byte *msg, uint8_t size)
+bool GNSS::crc( byte *msg, uint32_t size)
 {
-  uint8_t s = size;
+  uint32_t s = size;
   uint8_t CK_A = 0, CK_B = 0;
 
-  for( uint8_t i = 1; i < (s-2) ; i++)
+  for( uint8_t i = 2; i < (s-2) ; i++)
   {
     CK_A = CK_A + msg[i];
     CK_B = CK_B + CK_A;
   }
+  bool returnI = ( CK_A == msg[s-2] && CK_B == msg[s-1]);
+  DBG("CRC = ", returnI);
 
-  return ( CK_A == msg[s-1] && CK_B == msg[s]);
+  return ( CK_A == msg[s-2] && CK_B == msg[s-1]);
 
+}
+
+void GNSS::off( void )
+{
+  // first send dumb data to make sure its on
+  s_stream->write(0xFF);
+
+  byte message[] = {0xB5, 0x62, 0x02, 0x41, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+                    0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x61, 0x6B};
+
+  s_stream->write(message, sizeof(message));
+}
+
+void GNSS::factoryRST( void )
+{
+  // first send dumb data to make sure its on
+  s_stream->write(0xFF);
+
+  byte message[] = {0xB5, 0x62, 0x06, 0x09, 0x0D, 0x00, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00,
+                    0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00, 0x07, 0x1F, 0x9E};
+
+  s_stream->write(message, sizeof(message));
 }
 
 bool GNSS::saveCFG()

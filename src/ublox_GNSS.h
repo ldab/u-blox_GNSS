@@ -13,10 +13,13 @@ Distributed as-is; no warranty is given.
 
 #include "stdint.h"
 
-#if defined(ARDUINO) && ARDUINO >= 100
+#if defined(ARDUINO)
+	#if ARDUINO >= 100
     #include "Arduino.h"
-#else
+		#include "SoftwareSerial.h"
+	#else
     #include "WProgram.h"
+	#endif
 #endif
 
 #ifdef GNSS_DEBUG
@@ -36,9 +39,6 @@ Distributed as-is; no warranty is given.
 #else
   	#define DBG(...)
 #endif
-
-//Print variable name
-#define getName(var)  #var
 
 // Power Save Mode
 typedef enum
@@ -61,42 +61,43 @@ typedef enum
 	//...
 } fixType_t;
 
-// Power Mode State
-typedef enum
-{
-	NOT_ACTIVE,
-	ENABLED,
-	ACQUISITION,
-	TRACKING,
-	OPT_TRACKING,
-	INACTIVE
-	//...
-} psmState_t;
-
 class GNSS
 {
 public:
-	// Start Serial interface at a set baud rate.
-	GNSS( Stream& stream ) : stream(stream){};
+	// Assign serial interface to be used with the module
+
+	GNSS( SoftwareSerial& ss );
 	
 	// Empty begin() starts module on default, non-power saving mode, or PSM_1HZ.
-	bool begin( psmMode_t m = CONTINOUS );
+	bool init( psmMode_t m = CONTINOUS );
 
 	// Can also enter On, Off opperation by specifying parameters.
-	bool begin( psmMode_t m, uint32_t sleep, uint32_t onTime );
+	bool init( psmMode_t m, uint32_t sleep, uint32_t onTime );
 
 	// Send message and check Acknoledge message
-	bool sendUBX( byte *msg, uint8_t size);
+	bool sendUBX( byte *msg, uint32_t size);
 
 	// UBX-NAV-PVT -> Get coordinates, fix and accuracy;
-	bool getCoodinates( float &lon, float &lat, fixType_t &fix, float &acc, float acc_min = 50000 );
+	bool getCoodinates( float &lon, float &lat, fixType_t &fix, float &acc, float acc_min = 50 );
+
+	// UBX-RXM-PMREQ -> put the module in backup forever (off) wake by RX
+	void off( void );
+
+	// UBX-CFG-CFG -> Reset module to factory settings;
+	void factoryRST( void );
 
 	// UBX-CFG-CFG -> Save Configuration to the non-volatile message
 	bool saveCFG( void );
 
 private:
-	Stream& stream;
 
+	#define UART_TIMEOUT 	1000
+	#define FIX_TIMEOUT		60000
+
+	bool gnss_init = false;
+
+	HardwareSerial* stream;
+	SoftwareSerial*	s_stream;
 	// Read Serial RX buffer just to clean it
 	void clearUART( void );
 
@@ -104,7 +105,7 @@ private:
 	void bits_char( uint32_t c, uint8_t *_c );
 
 	// UBX Checksum
-	bool crc( byte *msg, uint8_t size);
+	bool crc( byte *msg, uint32_t size);
 
 	byte _saveCFG[21] = {0xB5, 0x62, 0x06, 0x09, 0x0D, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00, 0x00,
                   		0x00, 0x00, 0x00, 0x07, 0x21, 0xAF};

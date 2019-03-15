@@ -12,9 +12,10 @@ u-blox GNSS, GPS receiver library minimalistic light weight for low power tracki
 
 ## TODO
 
+- [ ] Use Stream class to work with both Harware and Software serial
 - [x] Implement better debug handler
 - [ ] Update Keywords
-- [ ] Implement serial timeout
+- [x] Implement serial timeout
 - [ ] Add AssistNow AID support
 
 ## How does it work?
@@ -25,7 +26,7 @@ When first powered the GNSS module automatically starts sending [NMEA](https://e
 3. Save configuration, otherwise it will reset to default configuration after waking up;
 4. Poll messages anytime you want;
 
-You can also turn the GNSS module OFF by ```GNSS::off()``` function, and empty command will sleep forever until any activity on the UART interface, alternatively the sleep time can be sent as well ```GNSS::off( uint16_t sleepTime )```.
+You can also turn the GNSS module OFF by ```GNSS::off()``` function, and empty command will sleep forever until any activity on the UART interface.
 
 
 ## Power Save Modes
