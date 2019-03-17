@@ -55,7 +55,7 @@ PSM 1Hz     | 9.5
 
 ## Troubleshooting
 
-If you get in trouble or want to try different configurations you can use the [serial_bridge.ino](.examples\Serial_Bridge\serial_bridge.ino) example and control the module using u-blox [u-center](https://www.u-blox.com/en/product/u-center). This example simply bridge the serial USB over the UART connected to the u-blox module defined on the ```#define``` interfaces.
+If you get in trouble or want to try different configurations you can use the [serial_bridge.ino](./examples/Serial_Bridge/serial_bridge.ino) example and control the module using u-blox [u-center](https://www.u-blox.com/en/product/u-center). This example simply bridge the serial USB over the UART connected to the u-blox module defined on the ```#define``` interfaces.
 
 ## Credits
 
