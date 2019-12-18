@@ -233,10 +233,10 @@ do{
     i--;
   }*/
 
-  lon = (uint32_t)((res[33] << 24) + (res[32] << 16) + (res[31] << 8) + res[30]) * 0.0000001f;
-  lat = (uint32_t)((res[37] << 24) + (res[36] << 16) + (res[35] << 8) + res[34]) * 0.0000001f;
+  lon = (float)((res[33] << 24) + (res[32] << 16) + (res[31] << 8) + res[30]) * 0.0000001f;
+  lat = (float)((res[37] << 24) + (res[36] << 16) + (res[35] << 8) + res[34]) * 0.0000001f;
   fix = (fixType_t)res[26];
-  acc = (uint32_t)((res[49] << 24) + (res[48] << 16) + (res[47] << 8) + res[46] ) / 1000.0f;
+  acc = (float)((res[49] << 24) + (res[48] << 16) + (res[47] << 8) + res[46] ) / 1000.0f;
 
   DBG("\nlon: ", lon, "lat: ", lat, " - ", fix, " ~", acc, "m");
   if( acc < acc_min ) goto finish;
