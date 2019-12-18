@@ -1,6 +1,6 @@
 {
     "name": "u-blox GNSS",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "description": "GNSS GPS library without bells and whistles, simply works, low power",
     "keywords": "sensors, GPS, GNSS, tracking, low power, mobile, battery, web, cloud, iot, gsm, gprs, gps, gnss",
     "authors":
